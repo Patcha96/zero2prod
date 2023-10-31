@@ -154,31 +154,21 @@ async fn validate_credentials(
     credentials: Credentials,
     pool: &PgPool,
 ) -> Result<uuid::Uuid, PublishError> {
-    // let hasher = Argon2::new(
-    //     Algorithm::Argon2id,
-    //     Version::V0x13,
-    //     // Memory size, in kb. number of iterations. degree of parallelism
-    //     Params::new(15000, 2, 1, None)
-    //         .context("Failed to build Argon2 parameters")
-    //         .map_err(PublishError::UnexpectedError)?,
-    // );
-    // let row: Option<_> = sqlx::query!(
-    //     r#"
-    //     SELECT user_id, password_hash
-    //     FROM users
-    //     WHERE username = $1
-    //     "#,
-    //     credentials.username,
-    // )
-    // .fetch_optional(pool)
-    // .await
-    // .context("Failed to perform a query to retrieve stored credentials.")
-    // .map_err(PublishError::UnexpectedError)?;
-
-    let (user_id, expected_password_hash) = get_stored_credentials(&credentials.username, &pool)
-        .await
-        .map_err(PublishError::UnexpectedError)?
-        .ok_or_else(|| PublishError::AuthError(anyhow::anyhow!("Unknown username.")))?;
+    let mut user_id = None;
+    let mut expected_password_hash = Secret::new(
+        "$argon2id$v=19$m=15000,t=2,p=1$\
+    gZiV/M1gPc22ElAH/Jh1Hw$\
+    CWOrkoo7oJBQ/iyh7uJ0LO2aLEfrHwTWllSAxT0zRno"
+            .to_string(),
+    );
+    if let Some((stored_user_id, stored_password_hash)) =
+        get_stored_credentials(&credentials.username, &pool)
+            .await
+            .map_err(PublishError::UnexpectedError)?
+    {
+        user_id = Some(stored_user_id);
+        expected_password_hash = stored_password_hash;
+    }
 
     spawn_blocking_with_tracing(move || {
         verify_password_hash(expected_password_hash, credentials.password)
@@ -188,7 +178,12 @@ async fn validate_credentials(
     .context("Failed to spawn a blocking task.")
     .map_err(PublishError::UnexpectedError)??;
 
-    Ok(user_id)
+    // This is only set to `Some` if we found credentials in the store
+    // So, even if the default password ends up matching (somehow)
+    // with the provided password,
+    // we never authenticate a non-existing user.
+    // You can easily add a unit test for that precise scenario.
+    user_id.ok_or_else(|| PublishError::AuthError(anyhow::anyhow!("Unknown username.")))
 }
 
 #[tracing::instrument(
