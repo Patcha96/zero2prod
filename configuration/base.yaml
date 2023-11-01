@@ -1,5 +1,8 @@
 #! configuration/base.yaml
 application:
+  # You need to set the `APP_APPLICATION__HMAC_SECRET` environment
+  # variable on Digital Ocean as well for production!
+  hmac_secret: "try-nice-get-twice-try-thrice-no-dice-even4-dumbl3d0re-s3cr37-g4l0r3"
   port: 8000
 database:
   host: "localhost"
