@@ -12,7 +12,6 @@ pub struct Settings {
     pub database: DatabaseSettings,
     pub application: ApplicationSettings,
     pub email_client: EmailClientSettings,
-    pub hmac_secret: Secret<String>,
 }
 
 #[derive(serde::Deserialize, Clone)]
