@@ -11,6 +11,7 @@ use actix_web::{
     },
     web, HttpResponse, ResponseError,
 };
+use actix_web_flash_messages::FlashMessage;
 use secrecy::Secret;
 use sqlx::PgPool;
 
@@ -82,6 +83,8 @@ pub async fn login(
                 AuthError::InvalidCredentials(_) => LoginError::AuthError(e.into()),
                 AuthError::UnexpectedError(_) => LoginError::UnexpectedError(e.into()),
             };
+            // Creates, signs (with hmac), sets correct properties of cookie
+            FlashMessage::error(e.to_string()).send();
             let response = HttpResponse::SeeOther()
                 .insert_header((LOCATION, "/login"))
                 .insert_header(("Set-Cookie", format!("_flash={e}")))

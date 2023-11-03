@@ -2,7 +2,7 @@
 application:
   # You need to set the `APP_APPLICATION__HMAC_SECRET` environment
   # variable on Digital Ocean as well for production!
-  hmac_secret: "github1-test2-password4-non3-compromising5"
+  hmac_secret: "github1-test2-password4-non3-compromising5-zorro1991-watermelon1015"
   port: 8000
 database:
   host: "localhost"
