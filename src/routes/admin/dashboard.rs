@@ -1,8 +1,7 @@
+//! src/routes/admin/dashboard.rs
 use crate::authentication::UserId;
-use crate::session_state::TypedSession;
 use crate::utils::e500;
 use actix_web::http::header::ContentType;
-use actix_web::http::header::LOCATION;
 use actix_web::{web, HttpResponse};
 use anyhow::Context;
 use sqlx::PgPool;

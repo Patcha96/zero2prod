@@ -6,7 +6,7 @@ use crate::configuration::Settings;
 use crate::email_client::EmailClient;
 use crate::routes::{
     admin_dashboard, change_password, change_password_form, confirm, health_check, home, log_out,
-    login, login_form, publish_newsletter, subscribe,
+    login, login_form, publish_newsletter, publish_newsletter_form, subscribe,
 };
 use actix_session::storage::RedisSessionStore;
 use actix_session::SessionMiddleware;
@@ -33,7 +33,9 @@ impl Application {
     // We have converted the `build` function into a constructor for
     // `Application`.
     pub async fn build(configuration: Settings) -> Result<Self, anyhow::Error> {
-        let connection_pool = get_connection_pool(&configuration.database);
+        let connection_pool = get_connection_pool(&configuration.database)
+            .await
+            .expect("Failed to connect to Postgres.");
 
         let sender_email = configuration
             .email_client
@@ -81,8 +83,10 @@ impl Application {
 #[derive(Clone)]
 pub struct HmacSecret(pub Secret<String>);
 
-pub fn get_connection_pool(configuration: &DatabaseSettings) -> PgPool {
-    PgPoolOptions::new().connect_lazy_with(configuration.with_db())
+pub async fn get_connection_pool(configuration: &DatabaseSettings) -> Result<PgPool, sqlx::Error> {
+    PgPoolOptions::new()
+        .connect_with(configuration.with_db())
+        .await
 }
 
 // We need to define a wrapper type in order to retrieve the URL
@@ -90,8 +94,7 @@ pub fn get_connection_pool(configuration: &DatabaseSettings) -> PgPool {
 // Retrieval from the context, in actix-web, is type-based: using
 // a raw `String` would expose us to conflicts.
 pub struct ApplicationBaseUrl(pub String);
-
-pub async fn run(
+async fn run(
     listener: TcpListener,
     db_pool: PgPool,
     email_client: EmailClient,
@@ -130,7 +133,9 @@ pub async fn run(
                     .route("/dashboard", web::get().to(admin_dashboard))
                     .route("/password", web::get().to(change_password_form))
                     .route("/password", web::post().to(change_password))
-                    .route("/logout", web::post().to(log_out)),
+                    .route("/logout", web::post().to(log_out))
+                    .route("/newsletters", web::get().to(publish_newsletter_form))
+                    .route("/newsletters", web::post().to(publish_newsletter)),
             )
             .app_data(db_pool.clone())
             .app_data(email_client.clone())

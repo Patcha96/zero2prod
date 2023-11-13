@@ -65,6 +65,14 @@ impl TestUser {
         .await
         .expect("Failed to store test user.");
     }
+
+    pub async fn login(&self, app: &TestApp) {
+        app.post_login(&serde_json::json!({
+            "username": &self.username,
+            "password": &self.password
+        }))
+        .await;
+    }
 }
 
 pub struct TestApp {
@@ -111,12 +119,25 @@ impl TestApp {
             .expect("Failed to execute request.")
     }
 
-    pub async fn post_newsletters(&self, body: serde_json::Value) -> reqwest::Response {
+    pub async fn get_publish_newsletter(&self) -> reqwest::Response {
         self.api_client
-            .post(&format!("{}/newsletters", &self.address))
-            // `reqwest` does all the encoding/formatting heavy-lifting for us.
-            .basic_auth(&self.test_user.username, Some(&self.test_user.password))
-            .json(&body)
+            .get(&format!("{}/admin/newsletters", &self.address))
+            .send()
+            .await
+            .expect("Failed to execute request.")
+    }
+
+    pub async fn get_publish_newsletter_html(&self) -> String {
+        self.get_publish_newsletter().await.text().await.unwrap()
+    }
+
+    pub async fn post_publish_newsletter<Body>(&self, body: &Body) -> reqwest::Response
+    where
+        Body: serde::Serialize,
+    {
+        self.api_client
+            .post(&format!("{}/admin/newsletters", &self.address))
+            .form(body)
             .send()
             .await
             .expect("Failed to execute request.")
@@ -225,7 +246,9 @@ pub async fn spawn_app() -> TestApp {
     let test_app = TestApp {
         address: format!("http://localhost:{}", application_port),
         port: application_port,
-        db_pool: get_connection_pool(&configuration.database),
+        db_pool: get_connection_pool(&configuration.database)
+            .await
+            .expect("Failed to connect to database"),
         email_server,
         test_user: TestUser::generate(),
         api_client: client,
@@ -240,7 +263,7 @@ async fn configure_database(config: &DatabaseSettings) -> PgPool {
         .expect("Failed to connect to Postgres");
 
     connection
-        .execute(format!(r#"CREATE DATABASE "{}";"#, config.database_name).as_str())
+        .execute(&*format!(r#"CREATE DATABASE "{}";"#, config.database_name).as_str())
         .await
         .expect("Failed to create database.");
 

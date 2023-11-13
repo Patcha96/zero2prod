@@ -1,3 +1,4 @@
+//! src/authentication/middleware.rs
 use crate::session_state::TypedSession;
 use crate::utils::{e500, see_other};
 use actix_web::body::MessageBody;
